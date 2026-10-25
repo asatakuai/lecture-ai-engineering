@@ -1,4 +1,4 @@
-"""第1回: 素のLLMに1回だけ質問するスクリプト。
+"""第1回: 会話履歴を保持して質問するスクリプト。
 
 使い方:
     uv run python -m app.ask "LoRAとは何ですか？"
@@ -18,12 +18,11 @@ from google.genai import errors
 from app.config import MODEL, api_error_message, get_api_key
 
 # 講座に固有の質問。正しい答えは data/glossary.json の homework-levels にある
-DEFAULT_QUESTION = "AIE2026の講座の宿題にある「3レベル」とは何ですか？"
+DEFAULT_QUESTION = "東京大学について簡単に説明してください。"
 
 
-def ask(question: str) -> str:
-    client = genai.Client(api_key=get_api_key())
-    response = client.models.generate_content(model=MODEL, contents=question)
+def ask(chat, question: str) -> str:
+    response = chat.send_message(question)
 
     usage = response.usage_metadata
     if usage is not None:
@@ -34,18 +33,25 @@ def ask(question: str) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="素のLLMに質問する")
-    parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
-    args = parser.parse_args()
+    client = genai.Client(api_key=get_api_key())
+    chat = client.chats.create(model=MODEL)
 
     print(f"[model] {MODEL}")
-    print(f"[質問] {args.question}\n")
+    print("終了するには exit と入力してください。")
+
     try:
-        print(ask(args.question))
+        while True:
+            question = input("\n質問> ").strip()
+
+            if question.lower() in {"exit", "quit"}:
+                break
+            if not question:
+                continue
+
+            print(ask(chat, question))
     except errors.APIError as e:
         print(api_error_message(e.code, e.message))
         raise SystemExit(1)
-
 
 if __name__ == "__main__":
     main()
